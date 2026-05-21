@@ -5,13 +5,6 @@ const mysql = require("mysql2/promise");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-const connection = mysql.createConnection({
-  host: '172.31.37.224',       
-  user: 'alumno',              
-  password: 'alumno123',       
-  database: 'tienda_perritos', 
-  port: 3306                   
-});
 app.use(cors());
 app.use(express.json());
 
@@ -21,11 +14,11 @@ let pool;
 async function initDb() {
   try {
     pool = mysql.createPool({
-      host: DB_HOST,
-      user: DB_USER,
-      password: DB_PASSWORD,
-      database: DB_NAME,
-      port: DB_PORT,
+      host: '172.31.37.224',
+      user: 'alumno',
+      password: 'alumno123',
+      database: 'tienda_perritos',
+      port: 3306,
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,
