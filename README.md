@@ -35,3 +35,10 @@ Para desplegar un cambio:
    git add .
    git commit -m "Descripción del cambio"
    git push origin main
+
+
+El pipeline hará el despliegue automático.
+
+Una vez finalizado (aprox. 30 segundos), los cambios se verán reflejados en la URL pública del Load Balancer de AWS.
+
+Integrantes: Cristobal Guzman y Christopher Olivo

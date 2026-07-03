@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const mysql = require("mysql2/promise");
+// const mysql = require("mysql2/promise"); // COMENTADO: Ya no usamos MySQL en EP3
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -8,26 +8,19 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-let pool;
+// --- MOCK DATA (Base de datos en memoria para la presentación) ---
+let productosMock = [
+  { id: 1, nombre: "Alimento Premium Cachorro", descripcion: "Sabor pollo, razas pequeñas", precio: 19990, stock: 10 },
+  { id: 2, nombre: "Hueso de Juguete Resistente", descripcion: "Goma natural para morder", precio: 5500, stock: 25 },
+  { id: 3, nombre: "Cama Ortopédica Grande", descripcion: "Espuma viscoelástica", precio: 34990, stock: 5 }
+];
+let nextId = 4;
+// -----------------------------------------------------------------
 
-// Inicializar pool de conexiones
-async function initDb() {
-  try {
-    pool = mysql.createPool({
-      host: '172.31.37.224',
-      user: 'alumno',
-      password: 'alumno123',
-      database: 'tienda_perritos',
-      port: 3306,
-      waitForConnections: true,
-      connectionLimit: 10,
-      queueLimit: 0,
-    });
-    console.log("Pool de conexiones MySQL inicializado.");
-  } catch (err) {
-    console.error("Error al inicializar pool de MySQL:", err);
-  }
-}
+/* 
+// Inicializar pool de conexiones (COMENTADO PARA EVITAR EL ERROR 504)
+async function initDb() { ... } 
+*/
 
 // Helper para manejar errores
 function handleError(res, error, message = "Error interno del servidor") {
@@ -38,8 +31,9 @@ function handleError(res, error, message = "Error interno del servidor") {
 // Obtener todos los productos
 app.get("/api/productos", async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT id, nombre, descripcion, precio, stock FROM productos ORDER BY id DESC");
-    res.json(rows);
+    // Ordenamos por ID descendente para imitar tu SQL original
+    const ordenados = [...productosMock].sort((a, b) => b.id - a.id);
+    res.json(ordenados);
   } catch (err) {
     handleError(res, err, "No se pudieron obtener los productos.");
   }
@@ -49,11 +43,11 @@ app.get("/api/productos", async (req, res) => {
 app.get("/api/productos/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const [rows] = await pool.query("SELECT id, nombre, descripcion, precio, stock FROM productos WHERE id = ?", [id]);
-    if (rows.length === 0) {
+    const producto = productosMock.find(p => p.id === parseInt(id));
+    if (!producto) {
       return res.status(404).json({ message: "Producto no encontrado." });
     }
-    res.json(rows[0]);
+    res.json(producto);
   } catch (err) {
     handleError(res, err, "No se pudo obtener el producto.");
   }
@@ -68,13 +62,15 @@ app.post("/api/productos", async (req, res) => {
   }
 
   try {
-    const [result] = await pool.query(
-      "INSERT INTO productos (nombre, descripcion, precio, stock) VALUES (?, ?, ?, ?)",
-      [nombre, descripcion || null, precio, stock]
-    );
-    const nuevoId = result.insertId;
-    const [rows] = await pool.query("SELECT id, nombre, descripcion, precio, stock FROM productos WHERE id = ?", [nuevoId]);
-    res.status(201).json(rows[0]);
+    const nuevoProducto = {
+      id: nextId++,
+      nombre,
+      descripcion: descripcion || null,
+      precio: parseInt(precio),
+      stock: parseInt(stock)
+    };
+    productosMock.push(nuevoProducto); // Lo guardamos en la memoria temporal
+    res.status(201).json(nuevoProducto);
   } catch (err) {
     handleError(res, err, "No se pudo crear el Producto.");
   }
@@ -90,17 +86,19 @@ app.put("/api/productos/:id", async (req, res) => {
   }
 
   try {
-    const [result] = await pool.query(
-      "UPDATE productos SET nombre = ?, descripcion = ?, precio = ?, stock = ? WHERE id = ?",
-      [nombre, descripcion || null, precio, stock, id]
-    );
-
-    if (result.affectedRows === 0) {
+    const index = productosMock.findIndex(p => p.id === parseInt(id));
+    if (index === -1) {
       return res.status(404).json({ message: "Producto no encontrado." });
     }
 
-    const [rows] = await pool.query("SELECT id, nombre, descripcion, precio, stock FROM productos WHERE id = ?", [id]);
-    res.json(rows[0]);
+    productosMock[index] = {
+      ...productosMock[index],
+      nombre,
+      descripcion: descripcion || null,
+      precio: parseInt(precio),
+      stock: parseInt(stock)
+    };
+    res.json(productosMock[index]);
   } catch (err) {
     handleError(res, err, "No se pudo actualizar el Producto.");
   }
@@ -110,10 +108,11 @@ app.put("/api/productos/:id", async (req, res) => {
 app.delete("/api/productos/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const [result] = await pool.query("DELETE FROM productos WHERE id = ?", [id]);
-    if (result.affectedRows === 0) {
+    const index = productosMock.findIndex(p => p.id === parseInt(id));
+    if (index === -1) {
       return res.status(404).json({ message: "Producto no encontrado." });
     }
+    productosMock.splice(index, 1); // Lo borramos de la memoria temporal
     res.json({ message: "Producto eliminado correctamente." });
   } catch (err) {
     handleError(res, err, "No se pudo eliminar el Producto.");
@@ -122,11 +121,11 @@ app.delete("/api/productos/:id", async (req, res) => {
 
 // Endpoint de salud
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", message: "Backend de tienda de perritos en ejecución." });
+  res.json({ status: "ok", message: "Backend de tienda de perritos en ejecución (MOCK MODE)." });
 });
 
 // Iniciar servidor
 app.listen(PORT, async () => {
-  console.log(`Servidor backend escuchando en puerto ${PORT}`);
-  await initDb();
+  console.log(`Servidor backend escuchando en puerto ${PORT} (Sin BD)`);
+  // await initDb(); // COMENTADO PARA QUE ARRANQUE DE INMEDIATO
 });
